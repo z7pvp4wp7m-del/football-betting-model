@@ -8,7 +8,6 @@ from src.features import calculate_features
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="centered")
 
 # Load Model
-@st.cache_resource
 def load_model():
     if os.path.exists('models/xgb_model.pkl'):
         with open('models/xgb_model.pkl', 'rb') as f:
@@ -18,7 +17,6 @@ def load_model():
 model = load_model()
 
 # Load Data
-@st.cache_data
 def load_data():
     if os.path.exists('data/merged_data.csv'):
         return pd.read_csv('data/merged_data.csv')
@@ -31,7 +29,37 @@ st.title("⚽ Premier League Match Predictor")
 st.markdown("Predict match outcomes using **xG (Expected Goals)** and historical form.")
 
 if model is None or df is None:
-    st.error("Model or Data not found. Please run `python main.py` first.")
+    st.warning("⚠️ Model or Data not found.")
+    st.info("This is expected on a new deployment. Click below to download data and train the model.")
+    
+    if st.button("Train Model Now", type="primary"):
+        with st.spinner("Downloading data and training model... (This takes ~1 minute)"):
+            try:
+                # Import pipeline components
+                from src.data_loader import merge_data
+                from src.features import calculate_features
+                from src.model import train_model
+                
+                # Ensure directories exist
+                os.makedirs('data', exist_ok=True)
+                os.makedirs('models', exist_ok=True)
+                
+                # Run Pipeline
+                st.write("Step 1/3: Downloading & Merging Data...")
+                merge_data()
+                df = pd.read_csv('data/merged_data.csv')
+                
+                st.write("Step 2/3: Engineering Features...")
+                df_processed = calculate_features(df)
+                
+                st.write("Step 3/3: Training Model...")
+                train_model(df_processed)
+                
+                st.success("Done! Refreshing...")
+                st.rerun()
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+                st.write("Debug info:", os.getcwd(), os.listdir('.'))
     st.stop()
 
 # Team Selection
