@@ -6,7 +6,7 @@ import json
 from bs4 import BeautifulSoup
 import time
 
-def download_data(league='E0', seasons=['2324', '2223', '2122', '2021', '1920']):
+def download_data(league='E0', seasons=['2526', '2425', '2324', '2223', '2122']):
     """
     Downloads data for specified league and seasons from football-data.co.uk.
     Leagues: 'E0' (EPL), 'B1' (Belgium).
@@ -36,7 +36,7 @@ def download_data(league='E0', seasons=['2324', '2223', '2122', '2021', '1920'])
     print(f"Saved {len(full_df)} matches to data/{league}_history.csv")
     return full_df
 
-def fetch_understat_data(league='EPL', seasons=[2023, 2022, 2021, 2020, 2019]):
+def fetch_understat_data(league='EPL', seasons=[2025, 2024, 2023, 2022, 2021]):
     """
     Scrapes xG data from Understat.com.
     Only supports leagues covered by Understat (EPL, La Liga, etc.).
