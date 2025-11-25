@@ -5,9 +5,9 @@ __pycache__/
 venv/
 .env
 
-# Data and Models (Too large for git)
-data/
-models/
+# Data and Models (Small enough for git)
+# data/
+# models/
 
 # IDE
 .vscode/
