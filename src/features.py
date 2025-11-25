@@ -3,7 +3,8 @@ import numpy as np
 
 def calculate_features(df):
     """
-    Calculates features for the football match data, including xG stats.
+    Calculates features for the football match data.
+    Handles optional xG stats.
     """
     # Sort by date
     df['Date'] = pd.to_datetime(df['Date'], format='mixed')
@@ -12,14 +13,25 @@ def calculate_features(df):
     # Result encoding
     df['Result'] = df['FTR'].map({'H': 0, 'D': 1, 'A': 2})
     
+    # Check if xG data is available
+    has_xg = 'Home_xG' in df.columns and 'Away_xG' in df.columns
+    
     # Create a long dataframe for team stats
-    home_df = df[['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'FTR', 'Home_xG', 'Away_xG']].copy()
-    home_df.columns = ['Date', 'Team', 'Opponent', 'GoalsScored', 'GoalsConceded', 'FTR', 'xG_For', 'xG_Against']
+    cols = ['Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'FTR']
+    if has_xg:
+        cols.extend(['Home_xG', 'Away_xG'])
+        
+    home_df = df[cols].copy()
+    home_df.rename(columns={'HomeTeam': 'Team', 'AwayTeam': 'Opponent', 'FTHG': 'GoalsScored', 'FTAG': 'GoalsConceded'}, inplace=True)
+    if has_xg:
+        home_df.rename(columns={'Home_xG': 'xG_For', 'Away_xG': 'xG_Against'}, inplace=True)
     home_df['Points'] = home_df['FTR'].map({'H': 3, 'D': 1, 'A': 0})
     home_df['IsHome'] = 1
     
-    away_df = df[['Date', 'AwayTeam', 'HomeTeam', 'FTAG', 'FTHG', 'FTR', 'Away_xG', 'Home_xG']].copy()
-    away_df.columns = ['Date', 'Team', 'Opponent', 'GoalsScored', 'GoalsConceded', 'FTR', 'xG_For', 'xG_Against']
+    away_df = df[cols].copy()
+    away_df.rename(columns={'AwayTeam': 'Team', 'HomeTeam': 'Opponent', 'FTAG': 'GoalsScored', 'FTHG': 'GoalsConceded'}, inplace=True)
+    if has_xg:
+        away_df.rename(columns={'Away_xG': 'xG_For', 'Home_xG': 'xG_Against'}, inplace=True)
     away_df['Points'] = away_df['FTR'].map({'A': 3, 'D': 1, 'H': 0})
     away_df['IsHome'] = 0
     
@@ -33,23 +45,28 @@ def calculate_features(df):
     team_stats['Form_GoalsScored'] = team_stats.groupby('Team')['GoalsScored'].transform(lambda x: x.shift(1).rolling(window).mean())
     team_stats['Form_GoalsConceded'] = team_stats.groupby('Team')['GoalsConceded'].transform(lambda x: x.shift(1).rolling(window).mean())
     
-    # xG Form
-    team_stats['Form_xG_For'] = team_stats.groupby('Team')['xG_For'].transform(lambda x: x.shift(1).rolling(window).mean())
-    team_stats['Form_xG_Against'] = team_stats.groupby('Team')['xG_Against'].transform(lambda x: x.shift(1).rolling(window).mean())
-    
-    # xG Performance (Actual - Expected) - Positive means overperforming (lucky or good finishing)
-    team_stats['xG_Diff_For'] = team_stats['GoalsScored'] - team_stats['xG_For']
-    team_stats['xG_Diff_Against'] = team_stats['GoalsConceded'] - team_stats['xG_Against'] # Positive means conceding more than expected (bad luck or bad defense)
-    
-    team_stats['Form_xG_Diff_For'] = team_stats.groupby('Team')['xG_Diff_For'].transform(lambda x: x.shift(1).rolling(window).mean())
-    team_stats['Form_xG_Diff_Against'] = team_stats.groupby('Team')['xG_Diff_Against'].transform(lambda x: x.shift(1).rolling(window).mean())
+    # xG Form (Optional)
+    if has_xg:
+        team_stats['Form_xG_For'] = team_stats.groupby('Team')['xG_For'].transform(lambda x: x.shift(1).rolling(window).mean())
+        team_stats['Form_xG_Against'] = team_stats.groupby('Team')['xG_Against'].transform(lambda x: x.shift(1).rolling(window).mean())
+        
+        # xG Performance
+        team_stats['xG_Diff_For'] = team_stats['GoalsScored'] - team_stats['xG_For']
+        team_stats['xG_Diff_Against'] = team_stats['GoalsConceded'] - team_stats['xG_Against']
+        
+        team_stats['Form_xG_Diff_For'] = team_stats.groupby('Team')['xG_Diff_For'].transform(lambda x: x.shift(1).rolling(window).mean())
+        team_stats['Form_xG_Diff_Against'] = team_stats.groupby('Team')['xG_Diff_Against'].transform(lambda x: x.shift(1).rolling(window).mean())
 
     # Merge back
-    home_stats = team_stats[team_stats['IsHome'] == 1][['Date', 'Team', 'Form_Points', 'Form_GoalsScored', 'Form_GoalsConceded', 'Form_xG_For', 'Form_xG_Against', 'Form_xG_Diff_For', 'Form_xG_Diff_Against']]
-    home_stats.columns = ['Date', 'HomeTeam', 'Home_Form_Points', 'Home_Form_GS', 'Home_Form_GC', 'Home_Form_xG', 'Home_Form_xGA', 'Home_Form_xG_Diff', 'Home_Form_xGA_Diff']
+    stats_cols = ['Date', 'Team', 'Form_Points', 'Form_GoalsScored', 'Form_GoalsConceded']
+    if has_xg:
+        stats_cols.extend(['Form_xG_For', 'Form_xG_Against', 'Form_xG_Diff_For', 'Form_xG_Diff_Against'])
+        
+    home_stats = team_stats[team_stats['IsHome'] == 1][stats_cols]
+    home_stats.columns = ['Date', 'HomeTeam'] + [f'Home_{c}' for c in stats_cols[2:]]
     
-    away_stats = team_stats[team_stats['IsHome'] == 0][['Date', 'Team', 'Form_Points', 'Form_GoalsScored', 'Form_GoalsConceded', 'Form_xG_For', 'Form_xG_Against', 'Form_xG_Diff_For', 'Form_xG_Diff_Against']]
-    away_stats.columns = ['Date', 'AwayTeam', 'Away_Form_Points', 'Away_Form_GS', 'Away_Form_GC', 'Away_Form_xG', 'Away_Form_xGA', 'Away_Form_xG_Diff', 'Away_Form_xGA_Diff']
+    away_stats = team_stats[team_stats['IsHome'] == 0][stats_cols]
+    away_stats.columns = ['Date', 'AwayTeam'] + [f'Away_{c}' for c in stats_cols[2:]]
     
     df = pd.merge(df, home_stats, on=['Date', 'HomeTeam'], how='left')
     df = pd.merge(df, away_stats, on=['Date', 'AwayTeam'], how='left')

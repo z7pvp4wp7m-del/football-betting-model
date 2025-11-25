@@ -7,18 +7,31 @@ from sklearn.inspection import permutation_importance
 import pickle
 import os
 
-def train_model(df):
+def train_model(df, league_code='E0'):
     """
     Trains a HistGradientBoostingClassifier predictive model.
+    Adapts features based on availability (xG vs no xG).
     """
-    # Define features and target
-    features = [
+    # Define features based on what's available
+    base_features = [
         'Home_Form_Points', 'Home_Form_GS', 'Home_Form_GC', 
         'Away_Form_Points', 'Away_Form_GS', 'Away_Form_GC',
-        'Home_Form_xG', 'Home_Form_xGA', 'Home_Form_xG_Diff', 'Home_Form_xGA_Diff',
-        'Away_Form_xG', 'Away_Form_xGA', 'Away_Form_xG_Diff', 'Away_Form_xGA_Diff',
         'B365H', 'B365D', 'B365A'
     ]
+    
+    xg_features = [
+        'Home_Form_xG', 'Home_Form_xGA', 'Home_Form_xG_Diff', 'Home_Form_xGA_Diff',
+        'Away_Form_xG', 'Away_Form_xGA', 'Away_Form_xG_Diff', 'Away_Form_xGA_Diff'
+    ]
+    
+    # Check if xG features exist in df
+    features = base_features.copy()
+    if 'Home_Form_xG' in df.columns:
+        features.extend(xg_features)
+        print(f"Training Advanced Model (with xG) for {league_code}")
+    else:
+        print(f"Training Basic Model (no xG) for {league_code}")
+        
     target = 'Result' # 0: Home, 1: Draw, 2: Away
     
     # Drop rows with missing values in features
@@ -59,7 +72,7 @@ def train_model(df):
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred, target_names=['Home', 'Draw', 'Away']))
     
-    # Feature Importance (Permutation Importance since HistGradientBoosting doesn't have feature_importances_)
+    # Feature Importance
     print("\nCalculating Feature Importance...")
     result = permutation_importance(model, X_test, y_test, n_repeats=10, random_state=42, n_jobs=1)
     importances = pd.DataFrame({
@@ -72,8 +85,10 @@ def train_model(df):
     
     # Save model
     os.makedirs('models', exist_ok=True)
-    with open('models/xgb_model.pkl', 'wb') as f: # Keep name for compatibility with predict.py
+    model_path = f'models/model_{league_code}.pkl'
+    with open(model_path, 'wb') as f:
         pickle.dump(model, f)
+    print(f"Model saved to {model_path}")
         
     return model, X_test, y_test, y_prob
 

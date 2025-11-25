@@ -7,33 +7,52 @@ from src.features import calculate_features
 # Page Config
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="centered")
 
+# Header
+st.title("⚽ Match Predictor")
+
+# League Selector
+league_map = {'Premier League (EPL)': 'E0', 'Belgian Pro League': 'B1'}
+selected_league_name = st.selectbox("Select League", list(league_map.keys()))
+league_code = league_map[selected_league_name]
+
+st.markdown(f"Predicting **{selected_league_name}** matches.")
+if league_code == 'B1':
+    st.caption("Note: Belgian predictions use Basic Model (Form & Odds only) as xG data is unavailable.")
+else:
+    st.caption("Using Advanced Model with xG (Expected Goals).")
+
 # Load Model
-def load_model():
-    if os.path.exists('models/xgb_model.pkl'):
-        with open('models/xgb_model.pkl', 'rb') as f:
+def load_model(code):
+    path = f'models/model_{code}.pkl'
+    # Fallback for old model name if upgrading
+    if not os.path.exists(path) and code == 'E0' and os.path.exists('models/xgb_model.pkl'):
+        path = 'models/xgb_model.pkl'
+        
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
             return pickle.load(f)
     return None
 
-model = load_model()
+model = load_model(league_code)
 
 # Load Data
-def load_data():
-    if os.path.exists('data/merged_data.csv'):
-        return pd.read_csv('data/merged_data.csv')
+def load_data(code):
+    path = f'data/merged_{code}.csv'
+    # Fallback
+    if not os.path.exists(path) and code == 'E0' and os.path.exists('data/merged_data.csv'):
+        path = 'data/merged_data.csv'
+        
+    if os.path.exists(path):
+        return pd.read_csv(path)
     return None
 
-df = load_data()
-
-# Header
-st.title("⚽ Premier League Match Predictor")
-st.markdown("Predict match outcomes using **xG (Expected Goals)** and historical form.")
+df = load_data(league_code)
 
 if model is None or df is None:
-    st.warning("⚠️ Model or Data not found.")
-    st.info("This is expected on a new deployment. Click below to download data and train the model.")
+    st.warning(f"⚠️ Model or Data for {selected_league_name} not found.")
     
-    if st.button("Train Model Now", type="primary"):
-        with st.spinner("Downloading data and training model... (This takes ~1 minute)"):
+    if st.button(f"Train {selected_league_name} Model Now", type="primary"):
+        with st.spinner("Downloading data and training model..."):
             try:
                 # Import pipeline components
                 from src.data_loader import merge_data
@@ -46,20 +65,20 @@ if model is None or df is None:
                 
                 # Run Pipeline
                 st.write("Step 1/3: Downloading & Merging Data...")
-                merge_data()
-                df = pd.read_csv('data/merged_data.csv')
+                understat_league = 'EPL' if league_code == 'E0' else None
+                merge_data(league_code, understat_league)
+                df = pd.read_csv(f'data/merged_{league_code}.csv')
                 
                 st.write("Step 2/3: Engineering Features...")
                 df_processed = calculate_features(df)
                 
                 st.write("Step 3/3: Training Model...")
-                train_model(df_processed)
+                train_model(df_processed, league_code)
                 
                 st.success("Done! Refreshing...")
                 st.rerun()
             except Exception as e:
                 st.error(f"An error occurred: {e}")
-                st.write("Debug info:", os.getcwd(), os.listdir('.'))
     st.stop()
 
 # Team Selection
@@ -83,29 +102,38 @@ if st.button("Predict Outcome", type="primary"):
         'AwayTeam': away_team,
         'FTHG': 0, 'FTAG': 0, 'FTR': 'D', 
         'B365H': 2.0, 'B365D': 3.0, 'B365A': 4.0, # Dummy odds
-        'Home_xG': 1.3, 'Away_xG': 1.1, # Dummy xG
         'Season': '2324'
     }
+    
+    # Add dummy xG if needed
+    if league_code == 'E0':
+        dummy_row['Home_xG'] = 1.3
+        dummy_row['Away_xG'] = 1.1
     
     # Append to df to calculate features
     df_with_dummy = pd.concat([df, pd.DataFrame([dummy_row])], ignore_index=True)
     
-    # Recalculate features (using the same logic as training)
-    # Note: In a real app, we'd optimize this to not re-calc everything
+    # Recalculate features
     with st.spinner("Calculating recent form..."):
         df_processed = calculate_features(df_with_dummy)
     
     # Get the last row
     match_features = df_processed.iloc[[-1]]
     
-    # Features required
-    features = [
+    # Features required (Must match training)
+    base_features = [
         'Home_Form_Points', 'Home_Form_GS', 'Home_Form_GC', 
         'Away_Form_Points', 'Away_Form_GS', 'Away_Form_GC',
-        'Home_Form_xG', 'Home_Form_xGA', 'Home_Form_xG_Diff', 'Home_Form_xGA_Diff',
-        'Away_Form_xG', 'Away_Form_xGA', 'Away_Form_xG_Diff', 'Away_Form_xGA_Diff',
         'B365H', 'B365D', 'B365A'
     ]
+    xg_features = [
+        'Home_Form_xG', 'Home_Form_xGA', 'Home_Form_xG_Diff', 'Home_Form_xGA_Diff',
+        'Away_Form_xG', 'Away_Form_xGA', 'Away_Form_xG_Diff', 'Away_Form_xGA_Diff'
+    ]
+    
+    features = base_features.copy()
+    if league_code == 'E0':
+        features.extend(xg_features)
     
     X = match_features[features]
     
@@ -118,7 +146,6 @@ if st.button("Predict Outcome", type="primary"):
     
     # Winner
     outcomes = ['Home Win', 'Draw', 'Away Win']
-    winner = outcomes[prediction]
     
     if prediction == 0:
         st.success(f"**Prediction: {home_team} Win**")
@@ -136,22 +163,32 @@ if st.button("Predict Outcome", type="primary"):
     # Stats Comparison
     st.subheader("Form Comparison (Last 5 Games)")
     
-    stats_df = pd.DataFrame({
-        'Metric': ['Points', 'Goals Scored', 'Goals Conceded', 'xG For', 'xG Against'],
-        f'{home_team}': [
-            match_features['Home_Form_Points'].values[0],
-            match_features['Home_Form_GS'].values[0],
-            match_features['Home_Form_GC'].values[0],
+    metrics = ['Points', 'Goals Scored', 'Goals Conceded']
+    home_vals = [
+        match_features['Home_Form_Points'].values[0],
+        match_features['Home_Form_GS'].values[0],
+        match_features['Home_Form_GC'].values[0]
+    ]
+    away_vals = [
+        match_features['Away_Form_Points'].values[0],
+        match_features['Away_Form_GS'].values[0],
+        match_features['Away_Form_GC'].values[0]
+    ]
+    
+    if league_code == 'E0':
+        metrics.extend(['xG For', 'xG Against'])
+        home_vals.extend([
             match_features['Home_Form_xG'].values[0],
             match_features['Home_Form_xGA'].values[0]
-        ],
-        f'{away_team}': [
-            match_features['Away_Form_Points'].values[0],
-            match_features['Away_Form_GS'].values[0],
-            match_features['Away_Form_GC'].values[0],
+        ])
+        away_vals.extend([
             match_features['Away_Form_xG'].values[0],
             match_features['Away_Form_xGA'].values[0]
-        ]
+        ])
+    
+    stats_df = pd.DataFrame({
+        'Metric': metrics,
+        f'{home_team}': home_vals,
+        f'{away_team}': away_vals
     })
     st.table(stats_df.set_index('Metric'))
-

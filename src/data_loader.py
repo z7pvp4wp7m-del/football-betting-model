@@ -6,16 +6,16 @@ import json
 from bs4 import BeautifulSoup
 import time
 
-def download_data(seasons=['2324', '2223', '2122', '2021', '1920']):
+def download_data(league='E0', seasons=['2324', '2223', '2122', '2021', '1920']):
     """
-    Downloads EPL data for specified seasons from football-data.co.uk.
-    Seasons format: '2324' for 2023/2024.
+    Downloads data for specified league and seasons from football-data.co.uk.
+    Leagues: 'E0' (EPL), 'B1' (Belgium).
     """
     base_url = "https://www.football-data.co.uk/mmz4281/"
     data_frames = []
     
     for season in seasons:
-        url = f"{base_url}{season}/E0.csv"
+        url = f"{base_url}{season}/{league}.csv"
         print(f"Downloading {url}...")
         try:
             s = requests.get(url).content
@@ -23,7 +23,7 @@ def download_data(seasons=['2324', '2223', '2122', '2021', '1920']):
             df['Season'] = season
             data_frames.append(df)
         except Exception as e:
-            print(f"Error downloading {season}: {e}")
+            print(f"Error downloading {season} for {league}: {e}")
             
     if not data_frames:
         return None
@@ -32,15 +32,21 @@ def download_data(seasons=['2324', '2223', '2122', '2021', '1920']):
     
     # Save to disk
     os.makedirs('data', exist_ok=True)
-    full_df.to_csv('data/epl_history.csv', index=False)
-    print(f"Saved {len(full_df)} matches to data/epl_history.csv")
+    full_df.to_csv(f'data/{league}_history.csv', index=False)
+    print(f"Saved {len(full_df)} matches to data/{league}_history.csv")
     return full_df
 
-def fetch_understat_data(seasons=[2023, 2022, 2021, 2020, 2019]):
+def fetch_understat_data(league='EPL', seasons=[2023, 2022, 2021, 2020, 2019]):
     """
-    Scrapes xG data from Understat.com for EPL.
+    Scrapes xG data from Understat.com.
+    Only supports leagues covered by Understat (EPL, La Liga, etc.).
+    Returns None if league is not supported.
     """
-    base_url = "https://understat.com/league/EPL/"
+    if league != 'EPL':
+        print(f"Understat data not available/implemented for {league}")
+        return None
+
+    base_url = f"https://understat.com/league/{league}/"
     all_matches = []
     
     for season in seasons:
@@ -79,14 +85,7 @@ def fetch_understat_data(seasons=[2023, 2022, 2021, 2020, 2019]):
     if not all_matches:
         return None
         
-    xg_df = pd.DataFrame(all_matches)
-    
     # Process xG DataFrame
-    # Understat columns: 'h' (home team), 'a' (away team), 'xG' (home xG), 'xGA' (away xG) are inside 'history' usually? 
-    # Actually datesData structure is: 
-    # {'id': '22284', 'isResult': True, 'h': {'id': '89', 'title': 'Manchester United', 'short_title': 'MUN'}, 'a': {'id': '75', 'title': 'Fulham', 'short_title': 'FUL'}, 'goals': {'h': '1', 'a': '0'}, 'xG': {'h': '2.43807', 'a': '0.328325'}, 'datetime': '2024-08-16 19:00:00', ...}
-    
-    # Flatten the structure
     processed_matches = []
     for m in all_matches:
         if not m.get('isResult'):
@@ -102,71 +101,72 @@ def fetch_understat_data(seasons=[2023, 2022, 2021, 2020, 2019]):
         })
         
     xg_df = pd.DataFrame(processed_matches)
-    xg_df.to_csv('data/understat_history.csv', index=False)
-    print(f"Saved {len(xg_df)} xG records to data/understat_history.csv")
+    xg_df.to_csv(f'data/understat_{league}_history.csv', index=False)
+    print(f"Saved {len(xg_df)} xG records to data/understat_{league}_history.csv")
     return xg_df
 
-def merge_data():
+def merge_data(league_code='E0', understat_league='EPL'):
     """
-    Merges football-data.co.uk data with Understat xG data.
+    Merges football-data.co.uk data with Understat xG data (if available).
     """
-    print("Merging data sources...")
-    if not os.path.exists('data/epl_history.csv'):
-        download_data()
-    if not os.path.exists('data/understat_history.csv'):
-        fetch_understat_data()
+    print(f"Merging data for {league_code}...")
+    
+    # Ensure raw data exists
+    if not os.path.exists(f'data/{league_code}_history.csv'):
+        download_data(league=league_code)
+    
+    df_fd = pd.read_csv(f'data/{league_code}_history.csv')
+    
+    # Try to fetch/load xG data
+    df_xg = None
+    if understat_league:
+        if not os.path.exists(f'data/understat_{understat_league}_history.csv'):
+            fetch_understat_data(league=understat_league)
         
-    df_fd = pd.read_csv('data/epl_history.csv')
-    df_xg = pd.read_csv('data/understat_history.csv')
+        if os.path.exists(f'data/understat_{understat_league}_history.csv'):
+            df_xg = pd.read_csv(f'data/understat_{understat_league}_history.csv')
     
     # Standardize Dates
-    df_fd['Date'] = pd.to_datetime(df_fd['Date'], dayfirst=True)
-    df_xg['Date'] = pd.to_datetime(df_xg['Date'])
+    # Use mixed format for robustness as seen in previous issues
+    df_fd['Date'] = pd.to_datetime(df_fd['Date'], format='mixed')
     
-    # Team Name Mapping (Crucial step)
-    # We need to map Understat names to football-data names
-    # Let's try a fuzzy merge or manual mapping if needed.
-    # For now, let's look at unique names.
-    
-    # Simple manual mapping for common discrepancies
-    name_map = {
-        'Manchester United': 'Man United',
-        'Manchester City': 'Man City',
-        'Newcastle United': 'Newcastle',
-        'Nottingham Forest': "Nott'm Forest",
-        'Sheffield United': 'Sheffield United', # Check FD
-        'Wolverhampton Wanderers': 'Wolves',
-        'Brighton': 'Brighton',
-        'Leeds': 'Leeds',
-        'Leicester': 'Leicester',
-        'West Bromwich Albion': 'West Brom',
-        'Tottenham': 'Tottenham',
-        'West Ham': 'West Ham',
-        'Luton': 'Luton',
-        # Add more as discovered
-    }
-    
-    # Apply mapping to Understat data to match football-data
-    df_xg['HomeTeam_Map'] = df_xg['HomeTeam_Understat'].replace(name_map)
-    df_xg['AwayTeam_Map'] = df_xg['AwayTeam_Understat'].replace(name_map)
-    
-    # Merge on Date and HomeTeam
-    # Note: Dates might be slightly off (timezones). 
-    # Let's merge on HomeTeam and "nearest date" or just Date if we trust it.
-    # Understat dates are usually reliable.
-    
-    merged_df = pd.merge(df_fd, df_xg, 
-                         left_on=['Date', 'HomeTeam'], 
-                         right_on=['Date', 'HomeTeam_Map'], 
-                         how='inner')
-    
-    # Check how many we lost
-    print(f"Merged {len(merged_df)} matches out of {len(df_fd)} original matches.")
-    
-    merged_df.to_csv('data/merged_data.csv', index=False)
-    return merged_df
+    if df_xg is not None:
+        df_xg['Date'] = pd.to_datetime(df_xg['Date'])
+        
+        # Team Name Mapping
+        name_map = {
+            'Manchester United': 'Man United',
+            'Manchester City': 'Man City',
+            'Newcastle United': 'Newcastle',
+            'Nottingham Forest': "Nott'm Forest",
+            'Sheffield United': 'Sheffield United',
+            'Wolverhampton Wanderers': 'Wolves',
+            'Brighton': 'Brighton',
+            'Leeds': 'Leeds',
+            'Leicester': 'Leicester',
+            'West Bromwich Albion': 'West Brom',
+            'Tottenham': 'Tottenham',
+            'West Ham': 'West Ham',
+            'Luton': 'Luton',
+        }
+        
+        df_xg['HomeTeam_Map'] = df_xg['HomeTeam_Understat'].replace(name_map)
+        
+        merged_df = pd.merge(df_fd, df_xg, 
+                             left_on=['Date', 'HomeTeam'], 
+                             right_on=['Date', 'HomeTeam_Map'], 
+                             how='inner')
+        
+        print(f"Merged {len(merged_df)} matches with xG data.")
+        merged_df.to_csv(f'data/merged_{league_code}.csv', index=False)
+        return merged_df
+    else:
+        print("No xG data available. Using basic data.")
+        df_fd.to_csv(f'data/merged_{league_code}.csv', index=False)
+        return df_fd
 
 if __name__ == "__main__":
-    download_data()
-    fetch_understat_data()
-    merge_data()
+    # EPL
+    merge_data('E0', 'EPL')
+    # Belgium
+    merge_data('B1', None)
