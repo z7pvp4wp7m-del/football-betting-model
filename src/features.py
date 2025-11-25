@@ -42,8 +42,8 @@ def calculate_features(df):
     
     # Basic Form
     team_stats['Form_Points'] = team_stats.groupby('Team')['Points'].transform(lambda x: x.shift(1).rolling(window).sum())
-    team_stats['Form_GoalsScored'] = team_stats.groupby('Team')['GoalsScored'].transform(lambda x: x.shift(1).rolling(window).mean())
-    team_stats['Form_GoalsConceded'] = team_stats.groupby('Team')['GoalsConceded'].transform(lambda x: x.shift(1).rolling(window).mean())
+    team_stats['Form_GS'] = team_stats.groupby('Team')['GoalsScored'].transform(lambda x: x.shift(1).rolling(window).mean())
+    team_stats['Form_GC'] = team_stats.groupby('Team')['GoalsConceded'].transform(lambda x: x.shift(1).rolling(window).mean())
     
     # xG Form (Optional)
     if has_xg:
@@ -58,7 +58,7 @@ def calculate_features(df):
         team_stats['Form_xG_Diff_Against'] = team_stats.groupby('Team')['xG_Diff_Against'].transform(lambda x: x.shift(1).rolling(window).mean())
 
     # Merge back
-    stats_cols = ['Date', 'Team', 'Form_Points', 'Form_GoalsScored', 'Form_GoalsConceded']
+    stats_cols = ['Date', 'Team', 'Form_Points', 'Form_GS', 'Form_GC']
     if has_xg:
         stats_cols.extend(['Form_xG_For', 'Form_xG_Against', 'Form_xG_Diff_For', 'Form_xG_Diff_Against'])
         
