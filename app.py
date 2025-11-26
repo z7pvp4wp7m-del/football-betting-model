@@ -25,6 +25,7 @@ else:
 # Handle Retraining
 if st.session_state.get('retrain_needed'):
     with st.status("Retraining model...", expanded=True) as status:
+        st.write("DEBUG: Starting retraining process...")
         try:
             st.write("Importing modules...")
             from src.data_loader import merge_data
@@ -178,9 +179,10 @@ if st.button("Predict Outcome", type="primary"):
         else:
             st.error("⚠️ Model expects xG features but data is missing them.")
             st.info("This happens when the data source changes. Please retrain the model to fix it.")
-            if st.button("Retrain Model to Fix", type="primary"):
+            def start_retraining():
                 st.session_state['retrain_needed'] = True
-                st.rerun()
+                
+            st.button("Retrain Model to Fix", type="primary", on_click=start_retraining)
             st.stop()
             
 
