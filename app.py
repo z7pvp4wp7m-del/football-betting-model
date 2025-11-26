@@ -51,7 +51,7 @@ def load_data(code):
 
 df = load_data(league_code)
 
-# --- Sidebar ---
+# --- Sidebar (UI) ---
 with st.sidebar:
     st.header(f"{selected_league_name}")
     
@@ -65,23 +65,28 @@ with st.sidebar:
     st.subheader("🏆 Live Standings")
     
     if df is not None:
-        # Filter for current season (assuming last season in data is current)
-        current_season = df['Season'].max()
-        df_season = df[df['Season'] == current_season]
-        
-        table = calculate_league_table(df_season)
-        
-        # Display Table (Simplified)
-        st.dataframe(
-            table[['Team', 'P', 'Pts', 'GD']],
-            hide_index=True,
-            column_config={
-                "Team": st.column_config.TextColumn("Team", width="medium"),
-                "P": st.column_config.NumberColumn("P", width="small"),
-                "Pts": st.column_config.NumberColumn("Pts", width="small"),
-                "GD": st.column_config.NumberColumn("GD", width="small"),
-            }
-        )
+        if 'Season' in df.columns:
+            # Filter for current season (assuming last season in data is current)
+            current_season = df['Season'].max()
+            df_season = df[df['Season'] == current_season]
+            
+            table = calculate_league_table(df_season)
+            
+            # Display Table (Simplified)
+            st.dataframe(
+                table[['Team', 'P', 'Pts', 'GD']],
+                hide_index=True,
+                column_config={
+                    "Team": st.column_config.TextColumn("Team", width="medium"),
+                    "P": st.column_config.NumberColumn("P", width="small"),
+                    "Pts": st.column_config.NumberColumn("Pts", width="small"),
+                    "GD": st.column_config.NumberColumn("GD", width="small"),
+                }
+            )
+        else:
+            st.warning("Data needs update (Missing Season info).")
+    else:
+        st.info("Load data to see table.")
     else:
         st.info("Load data to see table.")
 
@@ -122,8 +127,12 @@ if st.session_state.get('retrain_needed'):
 
 
 
-if model is None or df is None:
-    st.warning(f"⚠️ Model or Data for {selected_league_name} not found.")
+if model is None or df is None or 'Season' not in df.columns:
+    if df is not None and 'Season' not in df.columns:
+        st.error("⚠️ Data file is corrupt (Missing 'Season' column).")
+        st.info("This was caused by a previous bug. Please click 'Train Model Now' to fix it.")
+        
+    st.warning(f"⚠️ Model or Data for {selected_league_name} not found or invalid.")
     
     if st.button(f"Train {selected_league_name} Model Now", type="primary"):
         with st.spinner("Downloading data and training model..."):
