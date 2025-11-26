@@ -141,7 +141,23 @@ if st.button("Predict Outcome", type="primary"):
         if 'Home_Form_xG' in match_features.columns:
             features.extend(xg_features)
         else:
-            st.error("Model expects xG features but data is missing them. Please re-train model.")
+        else:
+            st.error("⚠️ Model expects xG features but data is missing them.")
+            st.info("This happens when the data source changes. Please retrain the model to fix it.")
+            if st.button("Retrain Model to Fix", type="primary"):
+                with st.spinner("Retraining model..."):
+                    from src.data_loader import merge_data
+                    from src.features import calculate_features
+                    from src.model import train_model
+                    
+                    # Force data reload
+                    understat_league = 'EPL' if league_code == 'E0' else None
+                    merge_data(league_code, understat_league)
+                    df = pd.read_csv(f'data/merged_{league_code}.csv')
+                    df_processed = calculate_features(df)
+                    train_model(df_processed, league_code)
+                    st.success("Model retrained! Refreshing...")
+                    st.rerun()
             st.stop()
             
     X = match_features[features]
