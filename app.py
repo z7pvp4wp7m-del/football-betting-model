@@ -1,11 +1,13 @@
 import streamlit as st
+# Force reload
+
 import pandas as pd
 import pickle
 import os
 import time
 from src.features import calculate_features
 from src.weather_loader import fetch_forecast
-from src.league_table import calculate_league_table, get_team_badge
+
 
 # Page Config
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="centered")
@@ -60,35 +62,7 @@ with st.sidebar:
     selected_date = st.date_input("Match Date", pd.Timestamp.now())
     st.caption(f"Predicting for: {selected_date.strftime('%A, %d %B %Y')}")
     
-    # League Table
-    st.divider()
-    st.subheader("🏆 Live Standings")
-    
-    if df is not None:
-        if 'Season' in df.columns:
-            # Filter for current season (assuming last season in data is current)
-            current_season = df['Season'].max()
-            df_season = df[df['Season'] == current_season]
-            
-            table = calculate_league_table(df_season)
-            
-            # Display Table (Simplified)
-            st.dataframe(
-                table[['Team', 'P', 'Pts', 'GD']],
-                hide_index=True,
-                column_config={
-                    "Team": st.column_config.TextColumn("Team", width="medium"),
-                    "P": st.column_config.NumberColumn("P", width="small"),
-                    "Pts": st.column_config.NumberColumn("Pts", width="small"),
-                    "GD": st.column_config.NumberColumn("GD", width="small"),
-                }
-            )
-        else:
-            st.warning("Data needs update (Missing Season info).")
-    else:
-        st.info("Load data to see table.")
-    else:
-        st.info("Load data to see table.")
+
 
 # Handle Retraining
 if st.session_state.get('retrain_needed'):
@@ -171,12 +145,12 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("Home")
     home_team = st.selectbox("Select Home Team", teams, index=0, key='home_select')
-    st.image(get_team_badge(home_team), width=100)
+
     
 with col2:
     st.subheader("Away")
     away_team = st.selectbox("Select Away Team", teams, index=1, key='away_select')
-    st.image(get_team_badge(away_team), width=100)
+
 
 if home_team == away_team:
     st.warning("Please select different teams.")
