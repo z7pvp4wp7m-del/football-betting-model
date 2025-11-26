@@ -211,6 +211,11 @@ if st.button("Predict Outcome", type="primary"):
              st.warning("⚠️ Weather data available but model not trained on it.")
              st.info("Click 'Retrain Model to Fix' to teach the model about weather!")
              
+    # Debug Info
+    st.write("DEBUG: Model Features:", getattr(model, 'n_features_in_', 'Unknown'))
+    st.write("DEBUG: Data Columns:", match_features.columns.tolist())
+    st.write("DEBUG: Selected Features:", features)
+    
     X = match_features[features]
     
     # Predict
