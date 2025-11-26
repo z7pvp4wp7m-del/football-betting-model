@@ -5,6 +5,7 @@ import os
 import time
 from src.features import calculate_features
 from src.weather_loader import fetch_forecast
+from src.league_table import calculate_league_table, get_team_badge
 
 # Page Config
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="centered")
@@ -22,6 +23,40 @@ if league_code == 'B1':
     st.caption("Note: Belgian predictions use Basic Model (Form & Odds only) as xG data is unavailable.")
 else:
     st.caption("Using Advanced Model with xG (Expected Goals).")
+
+# --- Sidebar ---
+with st.sidebar:
+    st.header(f"{selected_league_name}")
+    
+    # Calendar / Date Picker
+    st.subheader("📅 Calendar")
+    selected_date = st.date_input("Match Date", pd.Timestamp.now())
+    st.caption(f"Predicting for: {selected_date.strftime('%A, %d %B %Y')}")
+    
+    # League Table
+    st.divider()
+    st.subheader("🏆 Live Standings")
+    
+    if df is not None:
+        # Filter for current season (assuming last season in data is current)
+        current_season = df['Season'].max()
+        df_season = df[df['Season'] == current_season]
+        
+        table = calculate_league_table(df_season)
+        
+        # Display Table (Simplified)
+        st.dataframe(
+            table[['Team', 'P', 'Pts', 'GD']],
+            hide_index=True,
+            column_config={
+                "Team": st.column_config.TextColumn("Team", width="medium"),
+                "P": st.column_config.NumberColumn("P", width="small"),
+                "Pts": st.column_config.NumberColumn("Pts", width="small"),
+                "GD": st.column_config.NumberColumn("GD", width="small"),
+            }
+        )
+    else:
+        st.info("Load data to see table.")
 
 # Handle Retraining
 if st.session_state.get('retrain_needed'):
@@ -121,10 +156,16 @@ if model is None or df is None:
 # Team Selection
 teams = sorted(df['HomeTeam'].unique())
 col1, col2 = st.columns(2)
+
 with col1:
-    home_team = st.selectbox("Home Team", teams, index=0)
+    st.subheader("Home")
+    home_team = st.selectbox("Select Home Team", teams, index=0, key='home_select')
+    st.image(get_team_badge(home_team), width=100)
+    
 with col2:
-    away_team = st.selectbox("Away Team", teams, index=1)
+    st.subheader("Away")
+    away_team = st.selectbox("Select Away Team", teams, index=1, key='away_select')
+    st.image(get_team_badge(away_team), width=100)
 
 if home_team == away_team:
     st.warning("Please select different teams.")
@@ -134,7 +175,7 @@ if home_team == away_team:
 if st.button("Predict Outcome", type="primary"):
     # Create dummy row for prediction
     dummy_row = {
-        'Date': pd.Timestamp.now().strftime('%Y-%m-%d'),
+        'Date': selected_date.strftime('%Y-%m-%d'),
         'HomeTeam': home_team,
         'AwayTeam': away_team,
         'FTHG': 0, 'FTAG': 0, 'FTR': 'D', 
