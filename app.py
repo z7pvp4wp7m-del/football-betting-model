@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
+import time
 from src.features import calculate_features
 
 # Page Config
@@ -144,19 +145,34 @@ if st.button("Predict Outcome", type="primary"):
             st.error("⚠️ Model expects xG features but data is missing them.")
             st.info("This happens when the data source changes. Please retrain the model to fix it.")
             if st.button("Retrain Model to Fix", type="primary"):
-                with st.spinner("Retraining model..."):
-                    from src.data_loader import merge_data
-                    from src.features import calculate_features
-                    from src.model import train_model
-                    
-                    # Force data reload
-                    understat_league = 'EPL' if league_code == 'E0' else None
-                    merge_data(league_code, understat_league)
-                    df = pd.read_csv(f'data/merged_{league_code}.csv')
-                    df_processed = calculate_features(df)
-                    train_model(df_processed, league_code)
-                    st.success("Model retrained! Refreshing...")
-                    st.rerun()
+                with st.status("Retraining model...", expanded=True) as status:
+                    try:
+                        st.write("Importing modules...")
+                        from src.data_loader import merge_data
+                        from src.features import calculate_features
+                        from src.model import train_model
+                        
+                        st.write("Downloading and merging data...")
+                        # Force data reload
+                        understat_league = 'EPL' if league_code == 'E0' else None
+                        merge_data(league_code, understat_league)
+                        
+                        st.write("Loading new data...")
+                        df = pd.read_csv(f'data/merged_{league_code}.csv')
+                        
+                        st.write("Calculating features...")
+                        df_processed = calculate_features(df)
+                        
+                        st.write("Training model...")
+                        train_model(df_processed, league_code)
+                        
+                        status.update(label="Model retrained successfully!", state="complete", expanded=False)
+                        st.success("Done! Reloading app...")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error during retraining: {e}")
+                        status.update(label="Retraining failed", state="error")
             st.stop()
             
     X = match_features[features]
