@@ -24,6 +24,33 @@ if league_code == 'B1':
 else:
     st.caption("Using Advanced Model with xG (Expected Goals).")
 
+# Load Model
+def load_model(code):
+    path = f'models/model_{code}.pkl'
+    # Fallback for old model name if upgrading
+    if not os.path.exists(path) and code == 'E0' and os.path.exists('models/xgb_model.pkl'):
+        path = 'models/xgb_model.pkl'
+        
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            return pickle.load(f)
+    return None
+
+model = load_model(league_code)
+
+# Load Data
+def load_data(code):
+    path = f'data/merged_{code}.csv'
+    # Fallback
+    if not os.path.exists(path) and code == 'E0' and os.path.exists('data/merged_data.csv'):
+        path = 'data/merged_data.csv'
+        
+    if os.path.exists(path):
+        return pd.read_csv(path)
+    return None
+
+df = load_data(league_code)
+
 # --- Sidebar ---
 with st.sidebar:
     st.header(f"{selected_league_name}")
@@ -93,32 +120,7 @@ if st.session_state.get('retrain_needed'):
             st.session_state['retrain_needed'] = False
             st.stop()
 
-# Load Model
-def load_model(code):
-    path = f'models/model_{code}.pkl'
-    # Fallback for old model name if upgrading
-    if not os.path.exists(path) and code == 'E0' and os.path.exists('models/xgb_model.pkl'):
-        path = 'models/xgb_model.pkl'
-        
-    if os.path.exists(path):
-        with open(path, 'rb') as f:
-            return pickle.load(f)
-    return None
 
-model = load_model(league_code)
-
-# Load Data
-def load_data(code):
-    path = f'data/merged_{code}.csv'
-    # Fallback
-    if not os.path.exists(path) and code == 'E0' and os.path.exists('data/merged_data.csv'):
-        path = 'data/merged_data.csv'
-        
-    if os.path.exists(path):
-        return pd.read_csv(path)
-    return None
-
-df = load_data(league_code)
 
 if model is None or df is None:
     st.warning(f"⚠️ Model or Data for {selected_league_name} not found.")
