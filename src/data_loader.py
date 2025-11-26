@@ -153,6 +153,10 @@ def merge_data(league_code='E0', understat_league='EPL'):
         
         df_xg['HomeTeam_Map'] = df_xg['HomeTeam_Understat'].replace(name_map)
         
+        # Drop Season from xG data to avoid collision (Season_x, Season_y)
+        if 'Season' in df_xg.columns:
+            df_xg = df_xg.drop(columns=['Season'])
+        
         merged_df = pd.merge(df_fd, df_xg, 
                              left_on=['Date', 'HomeTeam'], 
                              right_on=['Date', 'HomeTeam_Map'], 
