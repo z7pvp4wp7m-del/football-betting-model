@@ -162,7 +162,8 @@ def merge_data(league_code='E0', understat_league='EPL'):
         
         # Fetch Weather
         print("Fetching weather data...")
-        merged_df = fetch_weather_batch(merged_df)
+        # merged_df = fetch_weather_batch(merged_df)
+        print("Skipping weather fetch (User requested speed)")
         
         merged_df.to_csv(f'data/merged_{league_code}.csv', index=False)
         return merged_df
@@ -171,7 +172,8 @@ def merge_data(league_code='E0', understat_league='EPL'):
         
         # Fetch Weather
         print("Fetching weather data...")
-        df_fd = fetch_weather_batch(df_fd)
+        # df_fd = fetch_weather_batch(df_fd)
+        print("Skipping weather fetch (User requested speed)")
         
         df_fd.to_csv(f'data/merged_{league_code}.csv', index=False)
         return df_fd

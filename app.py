@@ -186,7 +186,7 @@ if st.button("Predict Outcome", type="primary"):
     # Fetch Forecast
     with st.spinner("Checking weather forecast..."):
         forecast = fetch_forecast(home_team, dummy_row['Date'])
-        dummy_row.update(forecast)
+        # dummy_row.update(forecast) # Disable weather for model prediction
         
     st.info(f"**Weather Forecast**: 🌡️ {forecast['Temperature']}°C | 🌧️ {forecast['Rain']}mm | 💨 {forecast['WindSpeed']}km/h")
     
