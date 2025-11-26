@@ -22,6 +22,40 @@ if league_code == 'B1':
 else:
     st.caption("Using Advanced Model with xG (Expected Goals).")
 
+# Handle Retraining
+if st.session_state.get('retrain_needed'):
+    with st.status("Retraining model...", expanded=True) as status:
+        try:
+            st.write("Importing modules...")
+            from src.data_loader import merge_data
+            from src.features import calculate_features
+            from src.model import train_model
+            
+            st.write("Downloading and merging data...")
+            # Force data reload
+            understat_league = 'EPL' if league_code == 'E0' else None
+            merge_data(league_code, understat_league)
+            
+            st.write("Loading new data...")
+            df = pd.read_csv(f'data/merged_{league_code}.csv')
+            
+            st.write("Calculating features...")
+            df_processed = calculate_features(df)
+            
+            st.write("Training model...")
+            train_model(df_processed, league_code)
+            
+            status.update(label="Model retrained successfully!", state="complete", expanded=False)
+            st.success("Done! Reloading app...")
+            st.session_state['retrain_needed'] = False
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error during retraining: {e}")
+            status.update(label="Retraining failed", state="error")
+            st.session_state['retrain_needed'] = False
+            st.stop()
+
 # Load Model
 def load_model(code):
     path = f'models/model_{code}.pkl'
@@ -149,39 +183,7 @@ if st.button("Predict Outcome", type="primary"):
                 st.rerun()
             st.stop()
             
-    # Handle Retraining
-    if st.session_state.get('retrain_needed'):
-        with st.status("Retraining model...", expanded=True) as status:
-            try:
-                st.write("Importing modules...")
-                from src.data_loader import merge_data
-                from src.features import calculate_features
-                from src.model import train_model
-                
-                st.write("Downloading and merging data...")
-                # Force data reload
-                understat_league = 'EPL' if league_code == 'E0' else None
-                merge_data(league_code, understat_league)
-                
-                st.write("Loading new data...")
-                df = pd.read_csv(f'data/merged_{league_code}.csv')
-                
-                st.write("Calculating features...")
-                df_processed = calculate_features(df)
-                
-                st.write("Training model...")
-                train_model(df_processed, league_code)
-                
-                status.update(label="Model retrained successfully!", state="complete", expanded=False)
-                st.success("Done! Reloading app...")
-                st.session_state['retrain_needed'] = False
-                time.sleep(1)
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error during retraining: {e}")
-                status.update(label="Retraining failed", state="error")
-                st.session_state['retrain_needed'] = False
-                st.stop()
+
             
     X = match_features[features]
     
