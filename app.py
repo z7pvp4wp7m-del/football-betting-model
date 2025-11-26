@@ -186,20 +186,31 @@ if st.button("Predict Outcome", type="primary"):
     
     # Check if model expects xG features
     # Base features = 9. With xG = 17. With Weather = 15 (Basic+Weather) or 23 (Adv+Weather)
-    if hasattr(model, 'n_features_in_'):
-        if 'Home_Form_xG' in match_features.columns and model.n_features_in_ > 15:
+    
+    # Determine expected features from model if possible
+    expected_features = getattr(model, 'n_features_in_', 9)
+    
+    # Logic for xG
+    if 'Home_Form_xG' in match_features.columns:
+        # Only add if model expects > 9 features (Basic) AND (expects 17 or 23, i.e. has xG)
+        # This is tricky with just counts. 
+        # Better: If model has > 15 features, it definitely has xG (17 or 23).
+        # If model has 15 features, it has Weather but NO xG.
+        if expected_features > 15:
              features.extend(xg_features)
-        
-        if 'Home_Rain' in match_features.columns:
-             features.extend(weather_features)
-             
-    # Fallback if n_features_in_ is missing (old model)
-    else:
-         if 'Home_Form_xG' in match_features.columns:
-            features.extend(xg_features)
-            
+        elif expected_features == 17: # Old Advanced model
+             features.extend(xg_features)
 
-            
+    # Logic for Weather
+    if 'Home_Rain' in match_features.columns:
+        # Add if model expects 15 (Basic+Weather) or 23 (Adv+Weather)
+        if expected_features in [15, 23]:
+             features.extend(weather_features)
+        elif expected_features in [9, 17]:
+             # Model doesn't know about weather yet
+             st.warning("⚠️ Weather data available but model not trained on it.")
+             st.info("Click 'Retrain Model to Fix' to teach the model about weather!")
+             
     X = match_features[features]
     
     # Predict
