@@ -141,7 +141,6 @@ if st.button("Predict Outcome", type="primary"):
         if 'Home_Form_xG' in match_features.columns:
             features.extend(xg_features)
         else:
-        else:
             st.error("⚠️ Model expects xG features but data is missing them.")
             st.info("This happens when the data source changes. Please retrain the model to fix it.")
             if st.button("Retrain Model to Fix", type="primary"):
