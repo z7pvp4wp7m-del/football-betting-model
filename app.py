@@ -105,7 +105,9 @@ if st.button("Predict Outcome", type="primary"):
         'Season': '2324'
     }
     
-    # Add dummy xG if needed
+    # Add dummy xG if needed (only if we plan to use it)
+    # We will let calculate_features handle it, but we need to know if the model expects it.
+    # For now, we provide it for EPL, but we will filter features later based on the model.
     if league_code == 'E0':
         dummy_row['Home_xG'] = 1.3
         dummy_row['Away_xG'] = 1.1
@@ -132,9 +134,16 @@ if st.button("Predict Outcome", type="primary"):
     ]
     
     features = base_features.copy()
-    if league_code == 'E0':
-        features.extend(xg_features)
     
+    # Check if model expects xG features
+    # Base features = 9. With xG = 17.
+    if hasattr(model, 'n_features_in_') and model.n_features_in_ > 9:
+        if 'Home_Form_xG' in match_features.columns:
+            features.extend(xg_features)
+        else:
+            st.error("Model expects xG features but data is missing them. Please re-train model.")
+            st.stop()
+            
     X = match_features[features]
     
     # Predict
@@ -175,7 +184,7 @@ if st.button("Predict Outcome", type="primary"):
         match_features['Away_Form_GC'].values[0]
     ]
     
-    if league_code == 'E0':
+    if 'Home_Form_xG' in match_features.columns:
         metrics.extend(['xG For', 'xG Against'])
         home_vals.extend([
             match_features['Home_Form_xG'].values[0],
