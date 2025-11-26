@@ -4,6 +4,7 @@ import pickle
 import os
 import time
 from src.features import calculate_features
+from src.weather_loader import fetch_forecast
 
 # Page Config
 st.set_page_config(page_title="Football Predictor", page_icon="⚽", layout="centered")
@@ -141,6 +142,13 @@ if st.button("Predict Outcome", type="primary"):
         'Season': '2324'
     }
     
+    # Fetch Forecast
+    with st.spinner("Checking weather forecast..."):
+        forecast = fetch_forecast(home_team, dummy_row['Date'])
+        dummy_row.update(forecast)
+        
+    st.info(f"**Weather Forecast**: 🌡️ {forecast['Temperature']}°C | 🌧️ {forecast['Rain']}mm | 💨 {forecast['WindSpeed']}km/h")
+    
     # Add dummy xG if needed (only if we plan to use it)
     # We will let calculate_features handle it, but we need to know if the model expects it.
     # For now, we provide it for EPL, but we will filter features later based on the model.
@@ -169,21 +177,26 @@ if st.button("Predict Outcome", type="primary"):
         'Away_Form_xG', 'Away_Form_xGA', 'Away_Form_xG_Diff', 'Away_Form_xGA_Diff'
     ]
     
+    weather_features = [
+        'Home_Rain', 'Home_Temperature', 'Home_WindSpeed',
+        'Away_Rain', 'Away_Temperature', 'Away_WindSpeed'
+    ]
+    
     features = base_features.copy()
     
     # Check if model expects xG features
-    # Base features = 9. With xG = 17.
-    if hasattr(model, 'n_features_in_') and model.n_features_in_ > 9:
-        if 'Home_Form_xG' in match_features.columns:
+    # Base features = 9. With xG = 17. With Weather = 15 (Basic+Weather) or 23 (Adv+Weather)
+    if hasattr(model, 'n_features_in_'):
+        if 'Home_Form_xG' in match_features.columns and model.n_features_in_ > 15:
+             features.extend(xg_features)
+        
+        if 'Home_Rain' in match_features.columns:
+             features.extend(weather_features)
+             
+    # Fallback if n_features_in_ is missing (old model)
+    else:
+         if 'Home_Form_xG' in match_features.columns:
             features.extend(xg_features)
-        else:
-            st.error("⚠️ Model expects xG features but data is missing them.")
-            st.info("This happens when the data source changes. Please retrain the model to fix it.")
-            def start_retraining():
-                st.session_state['retrain_needed'] = True
-                
-            st.button("Retrain Model to Fix", type="primary", on_click=start_retraining)
-            st.stop()
             
 
             

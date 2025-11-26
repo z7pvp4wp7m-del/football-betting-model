@@ -24,6 +24,11 @@ def train_model(df, league_code='E0'):
         'Away_Form_xG', 'Away_Form_xGA', 'Away_Form_xG_Diff', 'Away_Form_xGA_Diff'
     ]
     
+    weather_features = [
+        'Home_Rain', 'Home_Temperature', 'Home_WindSpeed',
+        'Away_Rain', 'Away_Temperature', 'Away_WindSpeed'
+    ]
+    
     # Check if xG features exist in df
     features = base_features.copy()
     if 'Home_Form_xG' in df.columns:
@@ -31,6 +36,10 @@ def train_model(df, league_code='E0'):
         print(f"Training Advanced Model (with xG) for {league_code}")
     else:
         print(f"Training Basic Model (no xG) for {league_code}")
+        
+    if 'Home_Rain' in df.columns:
+        features.extend(weather_features)
+        print("Included Weather Features")
         
     target = 'Result' # 0: Home, 1: Draw, 2: Away
     

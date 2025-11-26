@@ -5,6 +5,7 @@ import os
 import json
 from bs4 import BeautifulSoup
 import time
+from src.weather_loader import fetch_weather_batch
 
 def download_data(league='E0', seasons=['2526', '2425', '2324', '2223', '2122']):
     """
@@ -158,10 +159,20 @@ def merge_data(league_code='E0', understat_league='EPL'):
                              how='inner')
         
         print(f"Merged {len(merged_df)} matches with xG data.")
+        
+        # Fetch Weather
+        print("Fetching weather data...")
+        merged_df = fetch_weather_batch(merged_df)
+        
         merged_df.to_csv(f'data/merged_{league_code}.csv', index=False)
         return merged_df
     else:
         print("No xG data available. Using basic data.")
+        
+        # Fetch Weather
+        print("Fetching weather data...")
+        df_fd = fetch_weather_batch(df_fd)
+        
         df_fd.to_csv(f'data/merged_{league_code}.csv', index=False)
         return df_fd
 

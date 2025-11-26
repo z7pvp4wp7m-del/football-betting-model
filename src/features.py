@@ -57,8 +57,25 @@ def calculate_features(df):
         team_stats['Form_xG_Diff_For'] = team_stats.groupby('Team')['xG_Diff_For'].transform(lambda x: x.shift(1).rolling(window).mean())
         team_stats['Form_xG_Diff_Against'] = team_stats.groupby('Team')['xG_Diff_Against'].transform(lambda x: x.shift(1).rolling(window).mean())
 
+    # Weather Features
+    if 'Rain' in team_stats.columns:
+        # Fill missing weather with 0/mean
+        team_stats['Rain'] = team_stats['Rain'].fillna(0)
+        team_stats['Temperature'] = team_stats['Temperature'].fillna(team_stats['Temperature'].mean())
+        team_stats['WindSpeed'] = team_stats['WindSpeed'].fillna(team_stats['WindSpeed'].mean())
+        
+        # Interaction: Win Rate in Rain
+        # We need to calculate this carefully to avoid data leakage (only use past games)
+        team_stats['IsRain'] = (team_stats['Rain'] > 0.1).astype(int)
+        
+        # Calculate rolling win rate in rain for each team
+        # This is complex, so for now let's just use the raw weather stats as features
+        # The model (Gradient Boosting) can learn interactions itself
+        
     # Merge back
     stats_cols = ['Date', 'Team', 'Form_Points', 'Form_GS', 'Form_GC']
+    if 'Rain' in team_stats.columns:
+        stats_cols.extend(['Rain', 'Temperature', 'WindSpeed'])
     if has_xg:
         stats_cols.extend(['Form_xG_For', 'Form_xG_Against', 'Form_xG_Diff_For', 'Form_xG_Diff_Against'])
         
