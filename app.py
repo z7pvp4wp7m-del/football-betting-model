@@ -280,25 +280,25 @@ if st.button("Predict Outcome", type="primary"):
     
     metrics = ['Points', 'Goals Scored', 'Goals Conceded']
     home_vals = [
-        match_features['Home_Form_Points'].values[0],
-        match_features['Home_Form_GS'].values[0],
-        match_features['Home_Form_GC'].values[0]
+        round(match_features['Home_Form_Points'].values[0], 2),
+        round(match_features['Home_Form_GS'].values[0], 2),
+        round(match_features['Home_Form_GC'].values[0], 2)
     ]
     away_vals = [
-        match_features['Away_Form_Points'].values[0],
-        match_features['Away_Form_GS'].values[0],
-        match_features['Away_Form_GC'].values[0]
+        round(match_features['Away_Form_Points'].values[0], 2),
+        round(match_features['Away_Form_GS'].values[0], 2),
+        round(match_features['Away_Form_GC'].values[0], 2)
     ]
     
     if 'Home_Form_xG' in match_features.columns:
         metrics.extend(['xG For', 'xG Against'])
         home_vals.extend([
-            match_features['Home_Form_xG'].values[0],
-            match_features['Home_Form_xGA'].values[0]
+            round(match_features['Home_Form_xG'].values[0], 2),
+            round(match_features['Home_Form_xGA'].values[0], 2)
         ])
         away_vals.extend([
-            match_features['Away_Form_xG'].values[0],
-            match_features['Away_Form_xGA'].values[0]
+            round(match_features['Away_Form_xG'].values[0], 2),
+            round(match_features['Away_Form_xGA'].values[0], 2)
         ])
     
     stats_df = pd.DataFrame({
