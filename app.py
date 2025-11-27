@@ -149,12 +149,9 @@ with col1:
     
 with col2:
     st.subheader("Away")
-    away_team = st.selectbox("Select Away Team", teams, index=1, key='away_select')
-
-
-if home_team == away_team:
-    st.warning("Please select different teams.")
-    st.stop()
+    # Filter out selected home team
+    away_teams = [t for t in teams if t != home_team]
+    away_team = st.selectbox("Select Away Team", away_teams, index=0, key='away_select')
 
 # Prediction Logic
 if st.button("Predict Outcome", type="primary"):
